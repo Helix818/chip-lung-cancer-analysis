@@ -1,4 +1,10 @@
 # overall SNP-CHIP interaction analysis; adapted from source with portable I/O.
+# ==================== 变量定义（需要自定义） ====================
+base_dir <- Sys.getenv("CHIP_LC_DATA_DIR")
+output_root <- Sys.getenv("CHIP_LC_OUTPUT_DIR")
+# ================================================================
+suppressWarnings(try(Sys.setlocale("LC_ALL", "Chinese (Simplified)_China.utf8"),
+                     silent = TRUE))
 
 #  0. packages 
 need_pkgs <- c(
@@ -23,10 +29,8 @@ library(flextable)
 library(officer)
 
 #  1. user settings 
-base_dir <- Sys.getenv("CHIP_LC_DATA_DIR")
 if (!nzchar(base_dir)) stop("Set CHIP_LC_DATA_DIR.")
 input_file <- file.path(base_dir, "SNP645人加个人信息.csv")
-output_root <- Sys.getenv("CHIP_LC_OUTPUT_DIR")
 if (!nzchar(output_root)) stop("Set CHIP_LC_OUTPUT_DIR.")
 out_dir <- file.path(output_root, "interaction_overall")
 

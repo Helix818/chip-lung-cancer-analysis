@@ -1,7 +1,11 @@
 # Audits the original seven-SNP selection against an omnibus categorical test.
 # Requires only base R; no participant-level output is written.
+# ==================== 变量定义（需要自定义） ====================
 data_dir <- Sys.getenv("CHIP_LC_DATA_DIR")
 output_root <- Sys.getenv("CHIP_LC_OUTPUT_DIR")
+# ================================================================
+suppressWarnings(try(Sys.setlocale("LC_ALL", "Chinese (Simplified)_China.utf8"),
+                     silent = TRUE))
 if (!nzchar(data_dir) || !nzchar(output_root)) {
   stop("Set CHIP_LC_DATA_DIR and CHIP_LC_OUTPUT_DIR before running.")
 }

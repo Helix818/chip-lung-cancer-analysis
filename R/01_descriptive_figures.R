@@ -1,12 +1,16 @@
 # Descriptive analyses from CHIPanalysis/CHIP_LC.R, with portable I/O.
-# Panel filenames reflect the historical script; compare COVERAGE.md.
+# Panel filenames reflect the historical analysis script.
 # Input tables remain outside this repository.
+# ==================== 变量定义（需要自定义） ====================
+data_dir <- Sys.getenv("CHIP_LC_DATA_DIR")
+output_root <- Sys.getenv("CHIP_LC_OUTPUT_DIR")
+# ================================================================
+suppressWarnings(try(Sys.setlocale("LC_ALL", "Chinese (Simplified)_China.utf8"),
+                     silent = TRUE))
 
 library(dplyr)
 library(tidyr)
 library(ggplot2)
-data_dir <- Sys.getenv("CHIP_LC_DATA_DIR")
-output_root <- Sys.getenv("CHIP_LC_OUTPUT_DIR")
 if (!nzchar(data_dir) || !nzchar(output_root)) stop("Set CHIP_LC_DATA_DIR and CHIP_LC_OUTPUT_DIR.")
 out_dir <- file.path(output_root, "descriptive_figures")
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
