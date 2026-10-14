@@ -1,10 +1,6 @@
-# Format corrected gene-specific interaction results into separate S3-S5 sheets.
-# Source models are unchanged; this script only formats their aggregate CSV output.
-# ==================== 变量定义（需要自定义） ====================
 res_dir <- Sys.getenv("CHIP_LC_OUTPUT_DIR")
 out_xlsx <- file.path(res_dir,"Supplementary_Tables_S3-S5_corrected.xlsx")
 out_table2 <- file.path(res_dir,"Table2_DNMT3A_replacement_rows.csv")
-# ================================================================
 if (!nzchar(res_dir)) stop("Set CHIP_LC_OUTPUT_DIR.")
 suppressWarnings(try(Sys.setlocale("LC_ALL","Chinese (Simplified)_China.utf8"),silent=TRUE))
 if(file.exists(out_xlsx) || file.exists(out_table2)) stop("Refusing to overwrite a corrected output.")

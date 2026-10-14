@@ -1,9 +1,5 @@
-# Re-render corrected aggregate estimates in the table-forest style of the submitted figures.
-# No model is fitted here. Original inputs, original figures, and prior corrected figures are untouched.
-# ==================== 变量定义（需要自定义） ====================
 result_dir <- Sys.getenv("CHIP_LC_OUTPUT_DIR")
 out_dir <- file.path(result_dir, "figures_matching_submission_style")
-# ================================================================
 if (!nzchar(result_dir)) stop("Set CHIP_LC_OUTPUT_DIR.")
 suppressWarnings(try(Sys.setlocale("LC_ALL", "Chinese (Simplified)_China.utf8"), silent=TRUE))
 library(forestploter)
@@ -34,7 +30,6 @@ save_forest <- function(plot_obj, stem, width, height) {
   grid.newpage(); grid.draw(plot_obj); dev.off()
 }
 
-# The submitted Fig. 3A used a blue-striped table forest, with OR and P columns.
 gene <- read.csv(file.path(result_dir, "Fig3A_gene_OR_corrected.csv"),
                  stringsAsFactors=FALSE)
 gene <- gene[match(c("DNMT3A", "TET2", "PPM1D"), gene$Gene), , drop=FALSE]
@@ -115,9 +110,4 @@ draw_joint <- function(gene_name, selected_snps, stem) {
   save_forest(p, stem, 11, height)
 }
 
-draw_joint("DNMT3A", "rs7178270", "Fig4B_matching_submission_style")
-draw_joint("DNMT3A", setdiff(snps, "rs7178270"),
-           "FigS4_matching_submission_style")
-draw_joint("TET2", snps, "FigS5_matching_submission_style")
-draw_joint("PPM1D", snps, "FigS6_matching_submission_style")
-message("Original-style figures saved to: ", out_dir)
+

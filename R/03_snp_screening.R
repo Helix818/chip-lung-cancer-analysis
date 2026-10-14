@@ -1,9 +1,5 @@
-# Audits the original seven-SNP selection against an omnibus categorical test.
-# Requires only base R; no participant-level output is written.
-# ==================== 变量定义（需要自定义） ====================
 data_dir <- Sys.getenv("CHIP_LC_DATA_DIR")
 output_root <- Sys.getenv("CHIP_LC_OUTPUT_DIR")
-# ================================================================
 suppressWarnings(try(Sys.setlocale("LC_ALL", "Chinese (Simplified)_China.utf8"),
                      silent = TRUE))
 if (!nzchar(data_dir) || !nzchar(output_root)) {
@@ -61,7 +57,6 @@ for (snp in snps) {
       if (!length(snp_terms)) {
         status <- "genotype_term_not_estimable"
       } else {
-        # Matches original SNPnew.R: first nonreference genotype contrast only.
         first_p <- coef_table[snp_terms[1], "Pr(>|z|)"]
         lrt <- stats::anova(null, fit, test = "Chisq")
         omnibus_p <- lrt[2, "Pr(>Chi)"]
@@ -77,4 +72,4 @@ for (snp in snps) {
 }
 out <- do.call(rbind, rows)
 write.csv(out, file.path(output_root, "snp_screening_audit.csv"), row.names = FALSE)
-message("Wrote SNP screen audit; original selection uses one genotype coefficient.")
+

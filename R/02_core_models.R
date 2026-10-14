@@ -1,7 +1,3 @@
-# Reconstructs the main logistic models from restricted participant-level inputs.
-# The original exploratory scripts remain in the private project; this file is
-# organized as a single, non-interactive analysis script.
-# ==================== 变量定义（需要自定义） ====================
 data_dir <- Sys.getenv("CHIP_LC_DATA_DIR")
 output_root <- Sys.getenv("CHIP_LC_OUTPUT_DIR")
 suppressWarnings(try(Sys.setlocale("LC_ALL", "Chinese (Simplified)_China.utf8"),
@@ -18,7 +14,6 @@ gene_names <- c("DNMT3A", "TET2", "PPM1D")
 chip_vaf_threshold <- 0.02
 expected_gene_carriers <- c(DNMT3A = 96L, TET2 = 35L, PPM1D = 21L)
 expected_stage_group_n <- c(G = 293L, H = 122L, I = 18L, J = 27L)
-# ================================================================
 if (!nzchar(data_dir) || !nzchar(output_root)) {
   stop("Set CHIP_LC_DATA_DIR and CHIP_LC_OUTPUT_DIR before running.")
 }
@@ -69,15 +64,11 @@ fit_main <- glm(TYPE ~ CHIPstatus + sex + age + Smoke + Family_tumor +
                   BingLang + Drink, data = all, family = binomial())
 results[[length(results) + 1L]] <- estimate(fit_main, "CHIPstatusCHIP", "main_CHIP")
 
-# Source Fig. S2A: CHIP carriage as the outcome.
 fit_chip <- glm(CHIPstatus ~ TYPE + sex + age + Smoke + Family_tumor +
                   BingLang + Drink, data = all, family = binomial())
 results[[length(results) + 1L]] <- estimate(fit_chip, "TYPELC", "CHIP_determinants_LC")
 results[[length(results) + 1L]] <- estimate(fit_chip, "age", "CHIP_determinants_age")
 
-# Source stage/histology models. The "No" reference indicator contains
-# control participants and cases in non-target/unknown categories; this is
-# retained to reproduce the reported estimates, not endorsed as final wording.
 stage <- read.csv(input(stage_file), stringsAsFactors = FALSE)
 required(stage, c("Filename", "cancer_type", "stage"), "ALL因素(分期).csv")
 stage <- stage[, c("Filename", "cancer_type", "stage"), drop = FALSE]
@@ -104,8 +95,6 @@ fit_histology <- glm(CHIPstatus ~ non_small_cell + small_cell + sex + age + Smok
 results[[length(results) + 1L]] <- estimate(fit_histology, "non_small_cellYes", "NSCLC_source_coding")
 results[[length(results) + 1L]] <- estimate(fit_histology, "small_cellYes", "SCLC_source_coding")
 
-# Preserve the original three-level model, using each gene's own variant VAF
-# for the Yes group and every participant without CHIP for the reference.
 chip_variants <- variants[!is.na(variants$VAF) &
                             variants$VAF >= chip_vaf_threshold, , drop = FALSE]
 chip_ids <- unique(chip_variants$Filename)
@@ -138,8 +127,6 @@ for (gene in gene_names) {
 write.csv(do.call(rbind, gene_rows),
           file.path(output_root, "Fig3A_gene_OR_corrected.csv"), row.names = FALSE)
 
-# These subgroup models reproduce the covariate sets actually used in the
-# exploratory source script, which are narrower than the current figure legend.
 all$age_group <- cut(all$age, breaks = c(40, 50, 60, 70, 80),
                      right = FALSE, labels = c("40-49", "50-59", "60-69", "70-79"))
 for (group in levels(all$age_group)) {
@@ -161,8 +148,6 @@ out <- do.call(rbind, results)
 write.csv(out, file.path(output_root, "core_model_estimates.csv"), row.names = FALSE)
 message("Wrote aggregate model estimates. No participant-level rows were exported.")
 
-# Figure 3B-E. Each row of CHIP_matched.csv is one mutation with VAF >= 2%.
-# The clone-size percentages in D/E use mutations, not unique participants.
 if (!requireNamespace("ggplot2", quietly = TRUE)) {
   stop("Install ggplot2 to generate Figure 3B-E and 3G-J.")
 }
@@ -192,7 +177,6 @@ for (gene in c("PPM1D", "TET2")) {
   dat <- chip_mut[chip_mut$GENE == gene, , drop = FALSE]
   if (!nrow(dat)) stop("No CHIP mutations found for ", gene)
 
-  # Protein positions determine the x-axis order; c. annotations follow them.
   protein_pos <- suppressWarnings(as.integer(
     sub("^[^0-9]*([0-9]+).*$", "\\1", dat$site)))
   protein_pos[!grepl("^p\\.", dat$site)] <- NA_integer_
@@ -246,8 +230,6 @@ for (gene in c("PPM1D", "TET2")) {
 write.csv(do.call(rbind, clone_counts),
           file.path(fig3_dir, "Fig3DE_clone_size_counts.csv"), row.names = FALSE)
 
-# Figure 3G-J. "Others" contains benign or unknown stage entries. A person
-# enters a gene panel only if that gene has its own VAF >= 2% mutation.
 stage_levels <- c("I", "II", "III", "IV", "Others")
 cases <- all[all$TYPE == "LC", c("Filename", "CHIPstatus", "stage")]
 if (!base::all(cases$stage %in% c("I", "II", "III", "IV", "benign", "unknown"))) {
@@ -300,4 +282,4 @@ stage_counts <- do.call(rbind, stage_counts)
 stage_counts$label <- NULL
 write.csv(stage_counts, file.path(fig3_dir, "Fig3GJ_stage_counts_corrected.csv"),
           row.names = FALSE)
-message("Wrote Figure 3B-E and 3G-J panels and aggregate counts.")
+

@@ -1,12 +1,8 @@
-# overall SNP-CHIP interaction analysis; adapted from source with portable I/O.
-# ==================== 变量定义（需要自定义） ====================
 base_dir <- Sys.getenv("CHIP_LC_DATA_DIR")
 output_root <- Sys.getenv("CHIP_LC_OUTPUT_DIR")
-# ================================================================
 suppressWarnings(try(Sys.setlocale("LC_ALL", "Chinese (Simplified)_China.utf8"),
                      silent = TRUE))
 
-#  0. packages 
 need_pkgs <- c(
   "dplyr", "tibble", "tidyr", "purrr",
   "forestploter", "grid",
@@ -28,7 +24,6 @@ library(readr)
 library(flextable)
 library(officer)
 
-#  1. user settings 
 if (!nzchar(base_dir)) stop("Set CHIP_LC_DATA_DIR.")
 input_file <- file.path(base_dir, "SNP645人加个人信息.csv")
 if (!nzchar(output_root)) stop("Set CHIP_LC_OUTPUT_DIR.")
@@ -37,13 +32,8 @@ out_dir <- file.path(output_root, "interaction_overall")
 analysis_label <- "CHIP"
 chip_var <- "CHIPstatus"
 
-## 二分类暴露统一标准化为 No / Yes
 chip_no  <- "No"
 chip_yes <- "Yes"
-
-## 如果原始数据中的编码不同，请在这里补充
-chip_no_candidates  <- c("Non_CHIP", "No", "NO", "No_CHIP", "Non-CHIP", "0", "Negative", "NEG", "N")
-chip_yes_candidates <- c("Yes", "YES", "CHIP", "1", "Positive", "POS", "Y")
 
 snp_list <- c("rs3743078","rs7178270","rs1292037",
               "rs2222722","rs2228001","rs2239611","rs4911154")
@@ -71,12 +61,10 @@ ref_genotypes <- list(
 outcome_var <- "TYPE"
 outcome_levels <- c("Non_LC", "LC")
 
-## 备选协变量：脚本会自动保留数据中存在的变量
 covar_candidates <- c("sex", "age", "Smoke", "Family_tumor", "BingLang", "Drink")
 
 sig_cutoff <- 0.05
 
-## 不稳定结果判定阈值
 min_case_or_control_n   <- 5
 extreme_or_cutoff       <- 100
 extreme_ci_high_cutoff  <- 1000
@@ -85,17 +73,14 @@ extreme_abs_reri_cutoff <- 100
 if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 if (!file.exists(input_file)) stop("Input file not found: ", input_file)
 
-#  2. read and preprocess 
 dat <- read.csv(input_file, header = TRUE, stringsAsFactors = FALSE, check.names = FALSE)
 
-## 基础变量检查
 required_base_vars <- c(outcome_var, chip_var)
 missing_base_vars <- setdiff(required_base_vars, names(dat))
 if (length(missing_base_vars) > 0) {
   stop("缺少以下核心变量：", paste(missing_base_vars, collapse = ", "))
 }
 
-## 仅保留数据中实际存在的 SNP
 available_snps <- intersect(snp_list, names(dat))
 missing_snps <- setdiff(snp_list, names(dat))
 if (length(missing_snps) > 0) {
@@ -107,7 +92,6 @@ if (length(snp_list) == 0) stop("没有可分析的 SNP。")
 snp_levels    <- snp_levels[names(snp_levels) %in% snp_list]
 ref_genotypes <- ref_genotypes[names(ref_genotypes) %in% snp_list]
 
-## 标准化二分类暴露变量为 No / Yes
 standardize_binary_var <- function(x, no_candidates, yes_candidates, var_name) {
   x_chr <- trimws(as.character(x))
   x_chr[x_chr %in% c("", "NA", "NaN")] <- NA_character_
@@ -148,7 +132,6 @@ if ("age" %in% names(dat))          dat$age <- as.numeric(dat$age)
 
 covars <- intersect(covar_candidates, names(dat))
 
-#  3. helper functions 
 fmt_p <- function(p) {
   ifelse(is.na(p), "",
          ifelse(p < 0.001, "<0.001", sprintf("%.3f", p)))
@@ -308,7 +291,6 @@ get_one_count <- function(count_df, genotype, chip_status) {
   }
 }
 
-#  4. core analysis functions 
 joint_effects_from_model <- function(fit, data_snp, snp, count_df) {
   if (is.null(fit)) return(tibble())
 
@@ -440,7 +422,6 @@ interaction_metrics_from_model <- function(fit, data_snp, snp, overall_p, count_
     OR01 <- exp(eta[2])
     OR11 <- exp(eta[3])
 
-    # Additive interaction (OR scale approximation)
     RERI <- OR11 - OR10 - OR01 + 1
     g_reri <- c(-OR10, -OR01, OR11)
     var_reri <- as.numeric(t(g_reri) %*% Sigma %*% g_reri)
@@ -616,7 +597,6 @@ analyze_snp <- function(snp) {
   )
 }
 
-#  5. run all SNPs 
 all_res <- map(snp_list, analyze_snp)
 
 coef_table_all  <- bind_rows(map(all_res, "coef_table"))
@@ -624,8 +604,6 @@ counts_all      <- bind_rows(map(all_res, "counts_table"))
 joint_all       <- bind_rows(map(all_res, "joint_table"))
 interaction_all <- bind_rows(map(all_res, "interaction_table"))
 
-#  6. define selection sets 
-## 6.1 joint effect 主图：至少一个 joint exposure (非参考基因型 + Yes) 结果显著
 joint_main_snps <- joint_all %>%
   filter(group_type == "joint_exposure", CHIP == chip_yes, !is.na(p), p < sig_cutoff) %>%
   distinct(SNP) %>%
@@ -633,7 +611,6 @@ joint_main_snps <- joint_all %>%
 
 joint_supp_snps <- setdiff(snp_list, joint_main_snps)
 
-## 6.2 交互主表：overall multiplicative p 显著
 interaction_main_snps <- interaction_all %>%
   filter(!is.na(overall_multiplicative_p), overall_multiplicative_p < sig_cutoff) %>%
   distinct(SNP) %>%
@@ -646,7 +623,6 @@ message("Joint-effect main-figure SNPs: ",
 message("Interaction main-table SNPs: ",
         ifelse(length(interaction_main_snps) == 0, "None", paste(interaction_main_snps, collapse = ", ")))
 
-#  7. save raw/intermediate files 
 write.csv(coef_table_all, file.path(out_dir, "00_model_coefficients_adjusted.csv"), row.names = FALSE, na = "")
 write.csv(counts_all,     file.path(out_dir, "01_joint_group_counts_by_case_control.csv"), row.names = FALSE, na = "")
 write.csv(joint_all,      file.path(out_dir, "02_joint_effects_adjusted_long.csv"), row.names = FALSE, na = "")
@@ -666,7 +642,6 @@ interaction_all_info <- interaction_all %>%
   arrange(SNP, genotype)
 write.csv(interaction_all_info, file.path(out_dir, "05_interaction_all_information.csv"), row.names = FALSE, na = "")
 
-## 紧凑版交互表（附带不稳定标记）
 interaction_compact_all <- interaction_all %>%
   transmute(
     SNP,
@@ -699,7 +674,6 @@ write.csv(interaction_compact_all,  file.path(out_dir, "06_interaction_table_com
 write.csv(interaction_compact_main, file.path(out_dir, "07_interaction_table_compact_main_overall_mult_sig_SNPs.csv"), row.names = FALSE, na = "")
 write.csv(interaction_compact_supp, file.path(out_dir, "08_interaction_table_compact_supplementary_SNPs.csv"), row.names = FALSE, na = "")
 
-#  8. forest plot helpers 
 format_joint_for_forest <- function(joint_df, snps_to_plot) {
   if (length(snps_to_plot) == 0) return(tibble())
 
@@ -787,7 +761,6 @@ make_joint_forest <- function(joint_df, snps_to_plot, title_text, file_prefix) {
       CI_high_plot = CI_high
     )
 
-  ## log坐标保护
   plot_df$OR_plot[!is.finite(plot_df$OR_plot) | plot_df$OR_plot <= 0] <- 0.001
   plot_df$CI_low_plot[!is.finite(plot_df$CI_low_plot) | plot_df$CI_low_plot <= 0] <- 0.001
   plot_df$OR_plot[!is.finite(plot_df$OR_plot) | plot_df$OR_plot > plot_cap] <- plot_cap
@@ -830,7 +803,6 @@ make_joint_forest <- function(joint_df, snps_to_plot, title_text, file_prefix) {
   invisible(p)
 }
 
-#  9. interaction table docx helpers 
 clean_p <- function(x) {
   x <- as.character(x)
   x <- str_trim(x)
@@ -1000,7 +972,6 @@ make_interaction_table_docx <- function(compact_df, caption_text, out_path, empt
   invisible(ft)
 }
 
-#  10. create forest plots 
 make_joint_forest(
   joint_df = joint_all,
   snps_to_plot = snp_list,
@@ -1022,7 +993,6 @@ make_joint_forest(
   file_prefix = "Figure3_joint_effects_supplementary_SNPs"
 )
 
-#  11. save selection summaries 
 write.csv(
   tibble(joint_main_figure_snps = joint_main_snps),
   file.path(out_dir, "09_joint_main_figure_SNPs.csv"),
@@ -1047,7 +1017,6 @@ write.csv(
   row.names = FALSE, na = ""
 )
 
-#  12. create interaction main/supplementary docx 
 make_interaction_table_docx(
   compact_df = interaction_compact_main,
   caption_text = paste0("Table. Multiplicative and additive interactions between SNPs and ", analysis_label, " in relation to lung cancer risk"),
@@ -1062,7 +1031,6 @@ make_interaction_table_docx(
   empty_text = "All analyzed SNPs met the prespecified criterion of overall multiplicative interaction P < 0.05; therefore no supplementary interaction table was generated."
 )
 
-message("All done. Files saved in: ", normalizePath(out_dir))
 
 
 
@@ -1071,20 +1039,6 @@ message("All done. Files saved in: ", normalizePath(out_dir))
 
 
 
-# ================ Updated SNP × DNMT3A-CHIP joint-effect and interaction analysis========================
-#
 
-# 主要更新：
-# 1) 所有展示列统一使用 P，不再使用 Padj
-# 2) joint effect 主图：按 joint exposure (非参考基因型 + DNMT3A-CHIP=Yes) 的 P < 0.05 选择 SNP
-# 3) 交互主表：按 overall_multiplicative_p < 0.05 选择 SNP
-# 4) 对不稳定结果做标记（稀疏单元格 / 非有限CI / 极端估计）
-# 5) 森林图配色按用户指定方案
-#
-# 说明：
-# - 该脚本输出 joint effects、multiplicative interaction、additive interaction
-# - 并自动生成主图、附图、主表、补充表
-# - 如 DNMT3A 变量的原始编码不是常见的 No/Yes 或 NCHIP/Yes，
-#   请修改 chip_no_candidates / chip_yes_candidates
 
 

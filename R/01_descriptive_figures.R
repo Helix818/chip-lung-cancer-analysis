@@ -1,10 +1,5 @@
-# Descriptive analyses from CHIPanalysis/CHIP_LC.R, with portable I/O.
-# Panel filenames reflect the historical analysis script.
-# Input tables remain outside this repository.
-# ==================== 变量定义（需要自定义） ====================
 data_dir <- Sys.getenv("CHIP_LC_DATA_DIR")
 output_root <- Sys.getenv("CHIP_LC_OUTPUT_DIR")
-# ================================================================
 suppressWarnings(try(Sys.setlocale("LC_ALL", "Chinese (Simplified)_China.utf8"),
                      silent = TRUE))
 
@@ -21,24 +16,20 @@ CHIP_ALL <- read.csv(file.path(data_dir, "CHIP_ALL.csv"), header = T)
 CHIPALL11table <- table(CHIP_ALL$TYPE, CHIP_ALL$CHIPstatus)
 CHIPALL11table <- as.matrix(CHIPALL11table)
 
-# 运行卡方检验
 chi_test <- chisq.test(CHIPALL11table)
 print(chi_test)
 
 library(tidyverse)
 
-# 按 TYPE 和 CHIPstatus 分组计数并计算百分比
 CHIPALL11_prop <- CHIP_ALL %>%
   group_by(TYPE, CHIPstatus) %>%
   summarise(n = n(), .groups = "drop") %>%
   group_by(TYPE) %>%
   mutate(percent = n / sum(n) * 100)
 
-# 新增组合填色变量：CHIPstatus.TYPE
 CHIPALL11_prop <- CHIPALL11_prop %>%
   mutate(fill_group = paste(CHIPstatus, TYPE, sep = "."))
 
-# 绘制堆叠柱状图并添加 P 值
 p_value <- chi_test$p.value
 p_label <- paste0("p = ", formatC(p_value, format = "e", digits = 2))
 
@@ -55,10 +46,10 @@ ggplot(
   ) +
   scale_fill_manual(
     values = c(
-      "CHIP.LC"         = "#ea5506",   # LC组  CHIP
-      "Non_CHIP.LC"     = "#fff1cf",   # LC组  Non_CHIP
-      "CHIP.Non_LC"     = "#274a78",   # Non_LC组 CHIP
-      "Non_CHIP.Non_LC" = "#eaf4fc"    # Non_LC组 Non_CHIP
+      "CHIP.LC"         = "#ea5506",
+      "Non_CHIP.LC"     = "#fff1cf",
+      "CHIP.Non_LC"     = "#274a78",
+      "Non_CHIP.Non_LC" = "#eaf4fc"
     ),
     labels = c(
       "CHIP.LC"         = "CHIP",
@@ -108,15 +99,9 @@ ggplot(
 ggsave("CHIP人数占比带P值.pdf",width = 5,height = 5)
 
 
-#### ===================================================================== ####
-####            14 张图（CHIP, VAF >= 2%）  Fig1 / FigS1 / FigS2             ####
-####  分子来自 CHIP_matched（携带者/突变人数），分母来自 CHIP_ALL（队列总人数）   ####
-####  配色：LC=Case=#ea5506 ，Non_LC=Control=#274a78                          ####
-#### ===================================================================== ####
 library(tidyr)
 library(scales)
 
-## ---- 通用约定 ----
 grp_col    <- c("LC" = "#ea5506", "Non_LC" = "#274a78")
 age_breaks <- c(39, 49, 59, 69, 79)
 age_labs   <- c("40-49", "50-59", "60-69", "70-79")
@@ -135,13 +120,11 @@ base_theme <- theme_classic() +
     panel.grid      = element_blank()
   )
 
-## ---- 数据预处理 ----
 CHIP_matched$TYPE    <- factor(CHIP_matched$TYPE, levels = c("LC", "Non_LC"))
 CHIP_ALL$TYPE        <- factor(CHIP_ALL$TYPE,     levels = c("LC", "Non_LC"))
 CHIP_ALL$age_grp     <- cut(CHIP_ALL$age,     breaks = age_breaks, labels = age_labs)
 CHIP_matched$age_grp <- cut(CHIP_matched$age, breaks = age_breaks, labels = age_labs)
 
-# 每个 CHIP 携带者一行（个体级聚合）
 indiv <- CHIP_matched %>%
   group_by(Filename) %>%
   summarise(TYPE    = first(TYPE),
@@ -151,10 +134,8 @@ indiv <- CHIP_matched %>%
             max_vaf   = max(VAF),
             .groups = "drop")
 
-# 各 (年龄段 × 组) 的队列总人数（频率分母）
 denom <- CHIP_ALL %>% count(age_grp, TYPE, name = "total")
 
-# 基因按携带者人数排序（多图复用）
 gene_indiv <- CHIP_matched %>% distinct(Filename, GENE, TYPE)
 gene_rank  <- gene_indiv %>% count(GENE, sort = TRUE)
 gene_order <- gene_rank$GENE
@@ -162,7 +143,6 @@ nLC  <- sum(CHIP_ALL$TYPE == "LC")
 nNon <- sum(CHIP_ALL$TYPE == "Non_LC")
 
 
-#### ---- Task 1  Fig1B：CHIP(VAF>=2%) 患病率随年龄段 ----
 carr2 <- CHIP_ALL %>% filter(CHIPstatus == "CHIP") %>% count(age_grp, TYPE, name = "n_chip")
 fig1b <- denom %>%
   left_join(carr2, by = c("age_grp", "TYPE")) %>%
@@ -181,7 +161,6 @@ p1b <- ggplot(fig1b, aes(age_grp, freq, color = TYPE, group = TYPE)) +
 ggsave("Fig1B.pdf", p1b, width = 5, height = 4)
 
 
-#### ---- Task 2  Fig1C：大克隆(VAF>=10%) 患病率随年龄段 ----
 lc10 <- CHIP_matched %>% filter(VAF >= 0.10) %>%
   distinct(Filename, age_grp, TYPE) %>%
   count(age_grp, TYPE, name = "n10")
@@ -202,7 +181,6 @@ p1c <- ggplot(fig1c, aes(age_grp, freq, color = TYPE, group = TYPE)) +
 ggsave("Fig1C.pdf", p1c, width = 5, height = 4)
 
 
-#### ---- Task 3  Fig1D：single- vs multi-mutated 组别构成（堆叠柱）----
 indiv <- indiv %>%
   mutate(mut_grp = factor(ifelse(mut_count == 1, "single-mutated", "multi-mutated"),
                           levels = c("single-mutated", "multi-mutated")))
@@ -221,10 +199,6 @@ p1d <- ggplot(d_df, aes(mut_grp, pct, fill = TYPE)) +
 ggsave("Fig1D.pdf", p1d, width = 4, height = 4.5)
 
 
-#### ---- Task 4  Fig1E：max VAF(%) ~ Age（个体级；分面散点 + lm 回归 + 95%CI + Spearman R/p） ----
-# 统计单位为个体（每位患者一点：最大克隆 VAF ~ 年龄），避免同一人多突变的伪重复。
-# LC 最大克隆随年龄弱-显著增大（Spearman ρ≈0.21, p≈0.015），Non_LC 几乎无趋势
-# （ρ≈0.06, p≈0.67）。注：去除最高 2–3 位患者后 LC 显著性减弱，属弱效应，报告时宜注明。
 e_df <- indiv %>% mutate(VAFpct = max_vaf * 100)
 
 cc_e <- e_df %>% group_by(TYPE) %>%
@@ -251,15 +225,10 @@ p1e <- ggplot(e_df, aes(age, VAFpct, color = TYPE, fill = TYPE)) +
 ggsave("Fig1E.pdf", p1e, width = 7, height = 4)
 
 
-#### ---- Task 4b  Fig1E_gam：max VAF(%) ~ Age（GAM 样条平滑，两组同面板）----
-# 方法可行：用惩罚回归样条（mgcv，REML）替代 loess —— 惩罚项自动控制曲线粗糙度，
-# 不会像 loess 那样出现多拐点/多交点。小样本(Non_LC n≈61)+弱信号下，固定低基维 k=4
-# 防过拟合；penalty 通常会把 edf 收缩到 ~1（近线性），属诚实结果而非缺陷。
 library(mgcv)
 
 eg_df <- indiv %>% mutate(VAFpct = max_vaf * 100)
 
-# 曲线用 GAM 样条展示，统计推断用 Spearman（与 Task 4 一致），标注 Spearman R/p
 sp_e <- eg_df %>% group_by(TYPE) %>%
   summarise(R = cor(age, VAFpct, method = "spearman"),
             p = suppressWarnings(cor.test(age, VAFpct, method = "spearman")$p.value),
@@ -283,9 +252,6 @@ p1e_gam <- ggplot(eg_df, aes(age, VAFpct, color = TYPE, fill = TYPE)) +
 ggsave("Fig1E_gam.pdf", p1e_gam, width = 5.5, height = 4.2)
 
 
-#### ---- Task 4c  Fig1E_q75：max VAF 第75百分位 ~ 年龄段（上尾趋势版配套）----
-# 信号在 VAF 上尾，故只追踪各年龄段 maxVAF 的第75百分位；bootstrap 95%CI。
-# 仅保留 n>=5 的年龄段（40-49 太小，不可解释）。不替换 GAM 版，仅新增。
 set.seed(1)
 boot_q <- function(x, prob = 0.75, B = 2000) {
   qs <- replicate(B, quantile(sample(x, replace = TRUE), prob, names = FALSE))
@@ -311,7 +277,6 @@ p1e_q75 <- ggplot(q75, aes(age_grp, q, color = TYPE, group = TYPE)) +
 ggsave("Fig1E_q75.pdf", p1e_q75, width = 5, height = 4)
 
 
-#### ---- Task 5  Fig1F：基因突变频率（分组柱）+ 每基因 Fisher p ----
 top_genes <- head(gene_order, 10)
 f_df <- gene_indiv %>% filter(GENE %in% top_genes) %>%
   count(GENE, TYPE, name = "n") %>%
@@ -341,9 +306,6 @@ p1f <- ggplot(f_df, aes(GENE, freq, fill = TYPE)) +
 ggsave("Fig1F.pdf", p1f, width = 7, height = 4.5)
 
 
-#### ---- Task 6  FigS1A：Mutation counts ~ Age（Poisson GAM 样条平滑）+ Spearman R/p ----
-# 图注：GAM curves with spline smoothing；计数响应 → 用 Poisson GAM（family=poisson）更严谨；
-# 推断仍用 Spearman（与图注一致）。低基维 k=4 防过拟合。
 cc_a <- indiv %>% group_by(TYPE) %>%
   summarise(R = cor(age, mut_count, method = "spearman"),
             p = suppressWarnings(cor.test(age, mut_count, method = "spearman")$p.value),
@@ -368,8 +330,6 @@ pS1a <- ggplot(indiv, aes(age, mut_count, color = TYPE)) +
 ggsave("FigS1A.pdf", pS1a, width = 5, height = 4)
 
 
-#### ---- Task 6b  FigS1A_prop：multi-mutated 比例 ~ 年龄段（比例版配套）----
-# 把离散计数(mut_count)改成"携带≥2个突变的人群比例"，趋势更清晰；binom 精确95%CI。
 prop_a <- indiv %>% filter(!is.na(age_grp)) %>%
   group_by(TYPE, age_grp) %>%
   summarise(n = n(), k = sum(mut_count >= 2), .groups = "drop") %>%
@@ -387,10 +347,8 @@ pS1a_prop <- ggplot(prop_a, aes(age_grp, prop, color = TYPE, group = TYPE)) +
 ggsave("FigS1A_prop.pdf", pS1a_prop, width = 5, height = 4)
 
 
-#### ---- Task 7  FigS1B：VAF(%) 箱线图 + 抖动点 + Wilcoxon p ----
 b_df  <- CHIP_matched %>% mutate(VAFpct = VAF * 100)
 pv_b  <- wilcox.test(VAFpct ~ TYPE, data = b_df)$p.value
-# 计算两组 VAF 中位数
 median_vaf <- b_df %>%
   group_by(TYPE) %>%
   summarise(median_VAFpct = median(VAFpct, na.rm = TRUE), .groups = "drop")
@@ -406,7 +364,6 @@ pS1b <- ggplot(b_df, aes(TYPE, VAFpct, color = TYPE)) +
 ggsave("FigS1B.pdf", pS1b, width = 4, height = 4.5)
 
 
-#### ---- Task 8  FigS1C：VAF 密度图 + 放大插图(0.1-0.2) ----
 dmax <- max(sapply(split(CHIP_matched$VAF, CHIP_matched$TYPE),
                    function(x) max(density(x)$y)))
 main8 <- ggplot(CHIP_matched, aes(VAF, fill = TYPE, color = TYPE)) +
@@ -427,8 +384,6 @@ pS1c <- main8 +
 ggsave("FigS1C.pdf", pS1c, width = 5.5, height = 4)
 
 
-#### ---- Task 9  FigS1D：Mutation count ~ log10(maxVAF)（Poisson GAM 样条平滑）+ Spearman R/p ----
-# 图注：smoothed curves（与 S1A 同属一图 → GAM 样条）；计数响应 → Poisson GAM；推断用 Spearman。
 d9 <- indiv %>% mutate(logmax = log10(max_vaf * 100))
 cc_d <- d9 %>% group_by(TYPE) %>%
   summarise(R = cor(logmax, mut_count, method = "spearman"),
@@ -454,8 +409,6 @@ pS1d <- ggplot(d9, aes(logmax, mut_count, color = TYPE)) +
 ggsave("FigS1D.pdf", pS1d, width = 5, height = 4)
 
 
-#### ---- Task 9b  FigS1D_prop：multi-mutated 比例 ~ 克隆大小分箱（比例版配套）----
-# 把"计数 ~ maxVAF"散点改成"按克隆大小分箱的 multi-mutated 比例"，趋势更清晰；binom 95%CI。
 vaf_breaks <- c(0, 2, 5, 10, 100)
 vaf_labs   <- c("<2", "2-5", "5-10", ">=10")
 prop_d <- indiv %>%
@@ -478,8 +431,6 @@ pS1d_prop <- ggplot(prop_d, aes(vaf_bin, prop, color = TYPE, group = TYPE)) +
 ggsave("FigS1D_prop.pdf", pS1d_prop, width = 5, height = 4)
 
 
-#### ---- Task 10  FigS2A_bar：基因突变计数柱状图（整体，不分组）----
-# 整体观察每个基因的出现情况，统一淡绿色填充
 gcount <- CHIP_matched %>% count(GENE, name = "n")
 gcount$GENE <- factor(gcount$GENE, levels = rev(gene_order))
 pS2a_bar <- ggplot(gcount, aes(n, GENE)) +
@@ -490,24 +441,6 @@ pS2a_bar <- ggplot(gcount, aes(n, GENE)) +
 ggsave("FigS2A_bar.pdf", pS2a_bar, width = 4.5, height = 8)
 
 
-#### ---- Task 11  FigS2A_waterfall：简化版瀑布图(oncoprint) ----
-# onco <- CHIP_matched %>% distinct(Filename, GENE, TYPE) %>%
-#   mutate(gi = as.integer(factor(GENE, levels = gene_order)))
-# samp_order <- onco %>% group_by(Filename) %>%
-#   summarise(top = min(gi), TYPE = first(TYPE), .groups = "drop") %>%
-#   arrange(TYPE, top)
-# onco$Filename <- factor(onco$Filename, levels = samp_order$Filename)
-# onco$GENE     <- factor(onco$GENE, levels = rev(gene_order))
-# 
-# pS2a_w <- ggplot(onco, aes(Filename, GENE, fill = TYPE)) +
-#   geom_tile(width = 0.9, height = 0.8) +
-#   scale_fill_manual(values = grp_col) +
-#   labs(x = NULL, y = NULL) + base_theme +
-#   theme(axis.text.x  = element_blank(),
-#         axis.ticks.x = element_blank(),
-#         axis.line    = element_blank(),
-#         panel.background = element_rect(fill = "grey92", color = NA))
-# ggsave("FigS2A_waterfall.pdf", pS2a_w, width = 10, height = 7)
 library(dplyr)
 library(ggplot2)
 library(forcats)
@@ -544,7 +477,6 @@ pS2a_bar <- ggplot(gcount, aes(x = n, y = GENE)) +
 
 ggsave("FigS2A_bar.pdf", pS2a_bar, width = 4.5, height = 8)
 
-#### ---- Task 12  FigS2B：各基因 VAF(%) 散点（两组着色）----
 b12 <- CHIP_matched %>% mutate(VAFpct = VAF * 100)
 b12$GENE <- factor(b12$GENE, levels = gene_order)
 pS2b <- ggplot(b12, aes(GENE, VAFpct, color = TYPE)) +
@@ -556,7 +488,6 @@ pS2b <- ggplot(b12, aes(GENE, VAFpct, color = TYPE)) +
 ggsave("FigS2B.pdf", pS2b, width = 11, height = 4.5)
 
 
-#### ---- Task 13  FigS2C：突变类型频率（分组柱）----
 mut_cats <- c("missense_variant", "stopgain", "frameshift_deletion",
               "frameshift_insertion", "splice")
 tot13 <- CHIP_matched %>% count(TYPE, name = "tot")
@@ -574,7 +505,6 @@ pS2c <- ggplot(c13, aes(mutTYPE, freq, fill = TYPE)) +
 ggsave("FigS2C.pdf", pS2c, width = 6, height = 4.5)
 
 
-#### ---- Task 14  FigS2D：碱基替换类型频率（分组柱，嘧啶折叠）----
 comp <- c(A = "T", T = "A", C = "G", G = "C")
 sub_levels <- c("C>T", "T>C", "C>A", "T>A", "C>G", "T>G")
 snv <- CHIP_matched %>%
@@ -595,8 +525,7 @@ pS2d <- ggplot(d14, aes(sub, freq, fill = TYPE)) +
   labs(x = NULL, y = "Frequency (%)") + base_theme
 ggsave("FigS2D.pdf", pS2d, width = 6, height = 4.5)
 
-message("已生成 18 张图：Fig1B/C/D/E/F, Fig1E_gam, Fig1E_q75, ",
-        "FigS1A/B/C/D, FigS1A_prop, FigS1D_prop, FigS2A_bar/A_waterfall/B/C/D")
+
 
 
 

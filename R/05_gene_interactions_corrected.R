@@ -1,6 +1,3 @@
-# Rebuild gene-specific interaction inputs from each gene's own variant VAF.
-# Temporary participant-level inputs are removed when this script exits.
-# ==================== 变量定义（需要自定义） ====================
 data_dir <- Sys.getenv("CHIP_LC_DATA_DIR")
 output_root <- Sys.getenv("CHIP_LC_OUTPUT_DIR")
 cohort_file <- Sys.getenv("CHIP_LC_COHORT_FILE",
@@ -15,7 +12,6 @@ expected_cohort_n <- 765L
 expected_snp_n <- 645L
 expected_cohort_gene_n <- c(DNMT3A = 96L, TET2 = 35L, PPM1D = 21L)
 expected_snp_gene_n <- c(DNMT3A = 92L, TET2 = 34L, PPM1D = 19L)
-# ================================================================
 
 main <- function() {
   suppressWarnings(try(Sys.setlocale("LC_ALL", "Chinese (Simplified)_China.utf8"),
